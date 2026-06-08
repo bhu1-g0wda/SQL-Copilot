@@ -10,13 +10,21 @@ backend/env/
 backend/ENV/
 backend/.venv/
 backend/__pycache__/
+backend/**/__pycache__/
 backend/*.py[cod]
+backend/**/*.py[cod]
 backend/*$py.class
 backend/.env
 
-# Databases
-backend/*.db
-backend/*.sqlite3
+# Pytest
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+
+# Databases — ignore ad-hoc test DBs but keep sample_store.db
+backend/test*.db
+backend/test*.sqlite3
+!backend/sample_store.db
 
 # OS files
 .DS_Store

@@ -152,7 +152,9 @@ function App() {
   const query   = useVerticalResize(QUERY_DEFAULT)
 
   const handleConnect = useCallback((params: ConnectionParams, dbSchema: SchemaInfo) => {
-    setConnection(params)
+    // Strip password from React state — credentials are held server-side via session_id
+    const { password: _pw, ...safeParams } = params
+    setConnection(safeParams as ConnectionParams)
     setSchema(dbSchema)
     setResult(null)
     setError(null)

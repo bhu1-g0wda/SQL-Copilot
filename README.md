@@ -4,7 +4,7 @@ An AI-powered SQL assistant that converts natural language to SQL using **Gemini
 
 ## Features
 
-- 🤖 **Natural language → SQL** via Gemini 2.5 Pro
+- 🤖 **Natural language → SQL** — via Gemini 2.5 Pro
 - 🗄️ **Multi-database support** — PostgreSQL, MySQL, SQLite
 - 🌳 **Schema explorer** — live tree view of tables and columns
 - 🔍 **Syntax-highlighted SQL** display with copy button

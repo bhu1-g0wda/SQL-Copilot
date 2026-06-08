@@ -12,4 +12,18 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split React into its own chunk — cached separately by browsers
+          react: ['react', 'react-dom'],
+          // Split the large syntax-highlighter library — lazy-loaded on first result
+          'syntax-highlighter': ['react-syntax-highlighter'],
+        },
+      },
+    },
+    // Raise the warning threshold slightly now that we've split the chunks
+    chunkSizeWarningLimit: 600,
+  },
 })
