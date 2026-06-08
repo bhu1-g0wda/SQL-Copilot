@@ -4,15 +4,17 @@ An AI-powered SQL assistant that converts natural language to SQL using **Gemini
 
 ## Features
 
-- 🤖 **Natural language → SQL** — via Gemini 2.5 Pro
+- 🤖 **Natural language → SQL** — powered by Gemini 2.5 Pro
 - 🗄️ **Multi-database support** — PostgreSQL, MySQL, SQLite
-- 🌳 **Schema explorer** — live tree view of tables and columns
-- 🔍 **Syntax-highlighted SQL** display with copy button
+- 🌳 **Schema explorer** — live tree view of your tables and columns
+- 🔍 **Syntax-highlighted SQL** display with one-click copy
 - 📊 **Paginated results table** for large result sets
-- ✏️ **Edit & re-run** generated SQL directly
+- ✏️ **Edit & re-run** AI-generated SQL directly in the editor
+- ↩️ **Undo stack** — revert INSERT / UPDATE / DELETE operations
 - ⚠️ **Confirmation modal** for destructive operations (DELETE, UPDATE, DROP, TRUNCATE)
 - 🔄 **Mode toggle** — switch between Natural Language and Raw SQL mode
-- 🔐 **Session-based connections** — credentials sent once on connect, never again in subsequent requests
+- 🔐 **Session-based connections** — credentials sent once on connect, never in subsequent requests
+- ↔️ **Resizable panels** — drag to resize the sidebar and query panel
 
 ---
 
@@ -21,25 +23,26 @@ An AI-powered SQL assistant that converts natural language to SQL using **Gemini
 ```
 sql-copilot/
 ├── backend/
-│   ├── main.py              # FastAPI app
-│   ├── requirements.txt     # Python deps
-│   ├── pytest.ini           # Test configuration
-│   ├── .env.example         # Environment variable template
-│   └── tests/
-│       └── test_main.py     # pytest test suite
+│   ├── main.py              # FastAPI application (all routes + logic)
+│   ├── requirements.txt     # Python dependencies
+│   ├── pytest.ini           # Pytest configuration
+│   ├── sample_store.db      # Sample SQLite database for quick demo
+│   └── .env                 # Environment variables (not committed)
 └── frontend/
     ├── src/
-    │   ├── App.tsx           # Main application
-    │   ├── index.css         # Global design system
+    │   ├── App.tsx                    # Root component, state & layout
+    │   ├── index.css                  # Global dark design system
+    │   ├── main.tsx                   # React entry point
     │   ├── api/
-    │   │   └── client.ts     # Axios API client (session-aware)
+    │   │   └── client.ts              # Axios API client (session-aware)
     │   └── components/
-    │       ├── ConnectionForm.tsx  # DB connection panel
-    │       ├── QueryInput.tsx      # NL/SQL input + mode toggle
-    │       ├── ResultsTable.tsx    # SQL block + data table
-    │       └── SchemaViewer.tsx    # Schema sidebar tree
+    │       ├── ConnectionForm.tsx     # Database connection panel
+    │       ├── QueryInput.tsx         # NL / SQL input + mode toggle
+    │       ├── ResultsTable.tsx       # Syntax-highlighted SQL + data table
+    │       └── SchemaViewer.tsx       # Schema sidebar tree
     ├── index.html
     ├── vite.config.ts
+    ├── tsconfig.json
     └── package.json
 ```
 
@@ -47,50 +50,64 @@ sql-copilot/
 
 ## Prerequisites
 
-- **Python 3.10+**
-- **Node.js 18+**
-- **Gemini API Key** — get one free at https://aistudio.google.com/
+| Requirement | Version |
+|---|---|
+| Python | 3.10 or newer |
+| Node.js | 18 or newer |
+| Gemini API Key | Free at https://aistudio.google.com/ |
 
-For PostgreSQL: `psycopg2-binary` is included (no extra install needed)  
-For MySQL: `pymysql` is included  
-For SQLite: built-in, no extra server needed
+> **Database drivers** — `psycopg2-binary` (PostgreSQL) and `pymysql` (MySQL) are included in `requirements.txt`. SQLite is built into Python — no extra install needed.
 
 ---
 
 ## Installation & Setup
 
-### 1. Clone / open the project
+### Step 1 — Get a Gemini API Key
 
-```bash
-cd "sql-copilot"
-```
+Go to https://aistudio.google.com/, sign in, and create a free API key.
 
-### 2. Backend Setup
+---
+
+### Step 2 — Backend Setup
+
+Open a terminal and run:
 
 ```bash
 cd backend
-
-# Create a virtual environment
-python -m venv venv
-
-# Activate it
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Create your .env file
-copy .env.example .env      # Windows
-# cp .env.example .env      # macOS/Linux
-
-# Edit .env and add your Gemini API key:
-# GEMINI_API_KEY=AIza...
 ```
 
-### 3. Frontend Setup
+**Create and activate a virtual environment:**
+
+```bash
+# Create
+python -m venv venv
+
+# Activate (Windows)
+venv\Scripts\activate
+
+# Activate (macOS / Linux)
+source venv/bin/activate
+```
+
+**Install dependencies:**
+
+```bash
+pip install -r requirements.txt
+```
+
+**Configure your API key:**
+
+Open `backend\.env` and set your key:
+
+```
+GEMINI_API_KEY=YOUR_API_KEY_HERE
+```
+
+---
+
+### Step 3 — Frontend Setup
+
+Open a **second terminal** and run:
 
 ```bash
 cd frontend
@@ -101,48 +118,72 @@ npm install
 
 ## Running the App
 
-### Start the Backend (Terminal 1)
+### Terminal 1 — Start the Backend
 
 ```bash
 cd backend
-venv\Scripts\activate   # Windows
-# source venv/bin/activate  # macOS/Linux
+venv\Scripts\activate
 uvicorn main:app --reload --port 8000
 ```
 
-Backend will be at: http://localhost:8000  
-API docs (Swagger): http://localhost:8000/docs
+- API base URL: http://localhost:8000
+- Interactive Swagger docs: http://localhost:8000/docs
 
-### Start the Frontend (Terminal 2)
+### Terminal 2 — Start the Frontend
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-Frontend will be at: http://localhost:5173
+- App URL: http://localhost:5173
+
+Open http://localhost:5173 in your browser and you're ready to go.
 
 ---
 
-## Running Tests
+## Quick Start with the Sample Database
 
-```bash
-cd backend
-venv\Scripts\activate
-pytest tests/ -v --cov=. --cov-report=term-missing
+A ready-to-use SQLite database (`backend/sample_store.db`) is included. To connect:
+
+1. Open the app at http://localhost:5173
+2. In the **Connection** panel, select **SQLite**
+3. Enter the full path to `sample_store.db`, e.g.:
+   ```
+   C:\Users\YourName\Desktop\sql copliot\backend\sample_store.db
+   ```
+4. Click **Connect**
+5. Try asking: *"Show me all products sorted by price"*
+
+---
+
+## Creating Your Own SQLite Database
+
+```python
+import sqlite3
+
+conn = sqlite3.connect("mydb.db")
+conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT, score REAL)")
+conn.execute("INSERT INTO users VALUES (1, 'Alice', 'alice@example.com', 98.5)")
+conn.execute("INSERT INTO users VALUES (2, 'Bob',   'bob@example.com',   82.1)")
+conn.commit()
+conn.close()
+print("Created mydb.db")
 ```
+
+Then connect using the full path to `mydb.db`.
 
 ---
 
 ## API Reference
 
-| Method | Endpoint                | Description                              |
-|--------|-------------------------|------------------------------------------|
-| GET    | `/api/health`           | Health check                             |
-| POST   | `/api/connect`          | Connect to DB, returns `session_id`      |
-| DELETE | `/api/session/{id}`     | Invalidate a session (disconnect)        |
-| POST   | `/api/query`            | NL → SQL via Gemini, then execute        |
-| POST   | `/api/execute`          | Execute raw SQL directly                 |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check |
+| POST | `/api/connect` | Connect to a database — returns `session_id` |
+| DELETE | `/api/session/{id}` | Invalidate a session (disconnect) |
+| POST | `/api/query` | Natural language → SQL via Gemini, then execute |
+| POST | `/api/execute` | Execute raw SQL directly |
 
 ### POST /api/connect
 
@@ -157,7 +198,9 @@ pytest tests/ -v --cov=. --cov-report=term-missing
 }
 ```
 
-**Response includes `session_id`** — use this for all subsequent requests. Credentials are never sent again.
+For SQLite, only `db_type` and `database` (file path) are required.
+
+**Response** includes a `session_id` — pass this in all subsequent requests. Credentials are never sent again.
 
 ### POST /api/query
 
@@ -179,46 +222,27 @@ pytest tests/ -v --cov=. --cov-report=term-missing
 
 ---
 
-## SQLite Quick Start (no server needed)
-
-1. Create a test SQLite database:
-
-```python
-import sqlite3
-conn = sqlite3.connect("test.db")
-conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT, score REAL)")
-conn.execute("INSERT INTO users VALUES (1,'Alice','alice@example.com',98.5)")
-conn.execute("INSERT INTO users VALUES (2,'Bob','bob@example.com',82.1)")
-conn.commit()
-conn.close()
-print("Created test.db")
-```
-
-2. In the app, select **SQLite**, enter the full path to `test.db`, and click **Connect**.
-3. Try: *"Show me all users sorted by score"*
-
----
-
 ## Environment Variables
 
-| Variable        | Required | Description            |
-|-----------------|----------|------------------------|
-| `GEMINI_API_KEY`| ✅ Yes   | Your Gemini API key    |
+| Variable | Required | Description |
+|---|---|---|
+| `GEMINI_API_KEY` | ✅ Yes | Your Gemini API key from Google AI Studio |
+
+The `.env` file lives at `backend\.env` and is excluded from version control by `.gitignore`.
 
 ---
 
 ## Tech Stack
 
-| Layer    | Technology                          |
-|----------|-------------------------------------|
-| Backend  | FastAPI + Uvicorn                   |
-| AI       | Google Gemini 2.5 Pro (via google-genai SDK) |
-| Database | SQLAlchemy + psycopg2 / pymysql     |
-| Frontend | React 18 + TypeScript + Vite        |
-| Styling  | Vanilla CSS (dark design system)    |
-| HTTP     | Axios                               |
-| Syntax   | react-syntax-highlighter            |
-| Testing  | pytest + httpx + pytest-cov         |
+| Layer | Technology |
+|---|---|
+| Backend | FastAPI + Uvicorn |
+| AI | Google Gemini 2.5 Pro (google-genai SDK) |
+| Database | SQLAlchemy + psycopg2 / pymysql |
+| Frontend | React 18 + TypeScript + Vite |
+| Styling | Vanilla CSS (dark design system) |
+| HTTP Client | Axios |
+| Syntax Highlighting | react-syntax-highlighter |
 
 ---
 
@@ -234,14 +258,23 @@ Credentials travel over the wire **only once** — in the `POST /api/connect` re
 
 ## Troubleshooting
 
-**`ModuleNotFoundError`** → Make sure your venv is activated and `pip install -r requirements.txt` was run.
+**`ModuleNotFoundError` on startup**
+→ Make sure your venv is activated (`venv\Scripts\activate`) and `pip install -r requirements.txt` has been run.
 
-**`401 Unauthorized` from the API** → Your session may have expired (1-hour TTL). Click Connect again.
+**`401 Unauthorized` from the API**
+→ Your session has expired (1-hour TTL). Click **Connect** in the app to start a new session.
 
-**`401 Unauthorized` from Gemini** → Check your `GEMINI_API_KEY` in `.env`.
+**`401 Unauthorized` / Gemini errors**
+→ Check that `GEMINI_API_KEY` is set correctly in `backend\.env`.
 
-**CORS errors** → Backend must be running on port 8000. Frontend proxy in `vite.config.ts` handles this automatically in dev.
+**CORS errors in the browser**
+→ The backend must be running on port 8000. The Vite proxy in `vite.config.ts` handles CORS automatically during development.
 
-**PostgreSQL connection refused** → Check that your PostgreSQL server is running and credentials are correct.
+**PostgreSQL connection refused**
+→ Check that your PostgreSQL server is running and that the host, port, and credentials are correct.
 
-**SQLite path errors** → Use an absolute path, e.g. `C:\Users\you\mydb.sqlite` on Windows.
+**SQLite path not found**
+→ Use the full absolute path, e.g. `C:\Users\YourName\Desktop\sql copliot\backend\sample_store.db`. Backslashes are fine on Windows.
+
+**Frontend shows blank page / network errors**
+→ Make sure both the backend (port 8000) and frontend dev server (port 5173) are running at the same time.
