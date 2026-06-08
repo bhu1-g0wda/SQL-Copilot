@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { Copy, Check, Play, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Copy, Check, Play, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Code2 } from 'lucide-react'
 
 const PAGE_SIZE = 50
 
@@ -22,8 +22,9 @@ export function ResultsTable({
   onRerunSQL,
   isNLResult,
 }: ResultsTableProps) {
-  const [copied,  setCopied]  = useState(false)
-  const [page,    setPage]    = useState(0)
+  const [copied,      setCopied]      = useState(false)
+  const [page,        setPage]        = useState(0)
+  const [sqlExpanded, setSqlExpanded] = useState(true)
 
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const pagedRows  = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -44,15 +45,30 @@ export function ResultsTable({
     val === null || val === undefined
 
   return (
-    <>
-      {/* ── SQL Block ──────────────────────────────────────────────────── */}
-      <div className="sql-block">
-        <div className="sql-block-header">
-          <div className="sql-block-label">
-            <span className="dot" />
+    <div className="results-layout">
+
+      {/* ── SQL Panel (collapsible) ─────────────────────────────────────── */}
+      <div className={`sql-panel ${sqlExpanded ? 'sql-panel--open' : ''}`}>
+        <div
+          className="sql-panel-header"
+          onClick={() => setSqlExpanded((v) => !v)}
+          role="button"
+          aria-expanded={sqlExpanded}
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setSqlExpanded((v) => !v)}
+        >
+          <div className="sql-panel-label">
+            <Code2 size={13} color="var(--accent-cyan)" />
             {isNLResult ? 'Generated SQL' : 'Executed SQL'}
+            <span className="sql-panel-toggle-hint">
+              {sqlExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              {sqlExpanded ? 'collapse' : 'expand'}
+            </span>
           </div>
-          <div className="sql-block-actions">
+          <div
+            className="sql-panel-actions"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               id="copy-sql-btn"
               className="btn btn-secondary btn-sm"
@@ -76,43 +92,47 @@ export function ResultsTable({
           </div>
         </div>
 
-        <SyntaxHighlighter
-          language="sql"
-          style={vscDarkPlus}
-          customStyle={{
-            margin: 0,
-            background: 'transparent',
-            padding: '16px',
-            fontSize: '13px',
-            lineHeight: '1.7',
-            fontFamily: 'var(--font-mono)',
-          }}
-          wrapLongLines
-        >
-          {sql}
-        </SyntaxHighlighter>
+        {sqlExpanded && (
+          <div className="sql-panel-body">
+            <SyntaxHighlighter
+              language="sql"
+              style={vscDarkPlus}
+              customStyle={{
+                margin: 0,
+                background: 'transparent',
+                padding: '14px 18px',
+                fontSize: '13px',
+                lineHeight: '1.75',
+                fontFamily: 'var(--font-mono)',
+              }}
+              wrapLongLines
+            >
+              {sql}
+            </SyntaxHighlighter>
+          </div>
+        )}
       </div>
 
-      {/* ── Results Table ──────────────────────────────────────────────── */}
+      {/* ── Results Table ────────────────────────────────────────────────── */}
       <div className="results-card">
         <div className="results-card-header">
           <div className="results-meta">
             {columns.length > 0 ? (
               <span className="results-badge">
-                ✓ {rowcount} {rowcount === 1 ? 'row' : 'rows'}
+                ✓ {rowcount.toLocaleString()} {rowcount === 1 ? 'row' : 'rows'}
               </span>
             ) : (
               <span className="affected-badge">
-                ⚡ {rowcount} {rowcount === 1 ? 'row' : 'rows'} affected
+                ⚡ {rowcount.toLocaleString()} {rowcount === 1 ? 'row' : 'rows'} affected
               </span>
             )}
             {columns.length > 0 && (
-              <span>{columns.length} columns</span>
+              <span className="results-col-count">{columns.length} columns</span>
             )}
           </div>
           {totalPages > 1 && (
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              Page {page + 1} of {totalPages}
+            <span className="results-page-label">
+              Page {page + 1} / {totalPages}
             </span>
           )}
         </div>
@@ -152,8 +172,8 @@ export function ResultsTable({
             {totalPages > 1 && (
               <div className="pagination">
                 <span className="pagination-info">
-                  Showing {page * PAGE_SIZE + 1}–
-                  {Math.min((page + 1) * PAGE_SIZE, rows.length)} of {rows.length} rows
+                  Rows {page * PAGE_SIZE + 1}–
+                  {Math.min((page + 1) * PAGE_SIZE, rows.length)} of {rows.length.toLocaleString()}
                 </span>
                 <div className="pagination-controls" aria-label="Pagination">
                   <button
@@ -199,11 +219,11 @@ export function ResultsTable({
             )}
           </>
         ) : (
-          <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
-            Query executed successfully — {rowcount} {rowcount === 1 ? 'row' : 'rows'} affected
+          <div className="no-rows-msg">
+            Query executed successfully — {rowcount.toLocaleString()} {rowcount === 1 ? 'row' : 'rows'} affected
           </div>
         )}
       </div>
-    </>
+    </div>
   )
 }

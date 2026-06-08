@@ -319,24 +319,60 @@ function App() {
 
           {/* Results (takes remaining space) */}
           <div className="results-area" aria-live="polite" aria-label="Query results">
-            {error && (
-              <div className="alert alert-error" role="alert">
-                <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-                <div>
-                  <strong>Error</strong>
-                  <p style={{ marginTop: 2, opacity: 0.85 }}>{error}</p>
-                </div>
-              </div>
-            )}
+            {(error || loading || (!result && !error)) && (
+              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', height: '100%' }}>
+                {error && (
+                  <div className="alert alert-error" role="alert">
+                    <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <div>
+                      <strong>Error</strong>
+                      <p style={{ marginTop: 2, opacity: 0.85 }}>{error}</p>
+                    </div>
+                  </div>
+                )}
 
-            {loading && (
-              <div className="loading-state" aria-label="Loading">
-                <div className="spinner spinner-lg" />
-                <p>
-                  {queryMode === 'nl'
-                    ? 'Claude is generating your SQL…'
-                    : 'Executing SQL…'}
-                </p>
+                {loading && (
+                  <div className="loading-state" aria-label="Loading">
+                    <div className="spinner spinner-lg" />
+                    <p>
+                      {queryMode === 'nl'
+                        ? 'Gemini is generating your SQL…'
+                        : 'Executing SQL…'}
+                    </p>
+                  </div>
+                )}
+
+                {!loading && !result && !error && (
+                  <div className="results-empty" aria-label="No results yet">
+                    <div className="results-empty-icon" aria-hidden="true">
+                      <Zap size={24} color="var(--accent-blue)" />
+                    </div>
+                    <h3>Ready to query</h3>
+                    <p>
+                      {isConnected
+                        ? 'Type a question in plain English or write raw SQL, then hit Run.'
+                        : 'Connect to a database using the panel on the left to get started.'}
+                    </p>
+                    {isConnected && (
+                      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 400 }}>
+                        {[
+                          'Show me all tables and their row counts',
+                          'Find the top 10 records with the highest values',
+                          'What are the most recent entries?',
+                        ].map((hint) => (
+                          <button
+                            key={hint}
+                            className="btn btn-secondary"
+                            style={{ fontSize: 12, justifyContent: 'flex-start', textAlign: 'left' }}
+                            onClick={() => { setQueryMode('nl'); handleSubmit(hint, 'nl') }}
+                          >
+                            <span style={{ opacity: 0.5 }}>✦</span> {hint}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -350,39 +386,8 @@ function App() {
                 isNLResult={isNLResult}
               />
             )}
-
-            {!loading && !result && !error && (
-              <div className="results-empty" aria-label="No results yet">
-                <div className="results-empty-icon" aria-hidden="true">
-                  <Zap size={24} color="var(--accent-blue)" />
-                </div>
-                <h3>Ready to query</h3>
-                <p>
-                  {isConnected
-                    ? 'Type a question in plain English or write raw SQL, then hit Run.'
-                    : 'Connect to a database using the panel on the left to get started.'}
-                </p>
-                {isConnected && (
-                  <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 400 }}>
-                    {[
-                      'Show me all tables and their row counts',
-                      'Find the top 10 records with the highest values',
-                      'What are the most recent entries?',
-                    ].map((hint) => (
-                      <button
-                        key={hint}
-                        className="btn btn-secondary"
-                        style={{ fontSize: 12, justifyContent: 'flex-start', textAlign: 'left' }}
-                        onClick={() => { setQueryMode('nl'); handleSubmit(hint, 'nl') }}
-                      >
-                        <span style={{ opacity: 0.5 }}>✦</span> {hint}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
+
         </main>
       </div>
 

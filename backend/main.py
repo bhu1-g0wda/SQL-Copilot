@@ -1,17 +1,20 @@
 import os
 import re
+import time
+import uuid
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import SQLAlchemyError
-import anthropic
+from google import genai
+from google.genai import types as genai_types
 from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI(title="SQL Copilot API", version="1.0.0")
+app = FastAPI(title="SQL Copilot API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,7 +24,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# ── Session store ────────────────────────────────────────────────────────────
+# Maps session_id → {"url": str, "schema": dict, "db_type": str, "expires": float}
+_sessions: dict[str, dict] = {}
+_SESSION_TTL = 3600  # seconds (1 hour)
+
+
+def _get_session(session_id: str) -> dict:
+    """Retrieve a valid session or raise 401."""
+    entry = _sessions.get(session_id)
+    if not entry:
+        raise HTTPException(status_code=401, detail="Session not found. Please reconnect.")
+    if time.time() > entry["expires"]:
+        del _sessions[session_id]
+        raise HTTPException(status_code=401, detail="Session expired. Please reconnect.")
+    # Refresh TTL on use
+    entry["expires"] = time.time() + _SESSION_TTL
+    return entry
+
+
+def _purge_expired():
+    """Remove expired sessions — called opportunistically on connect."""
+    now = time.time()
+    expired = [sid for sid, s in _sessions.items() if now > s["expires"]]
+    for sid in expired:
+        del _sessions[sid]
+
 
 # ── Models ──────────────────────────────────────────────────────────────────
 
@@ -33,24 +63,48 @@ class ConnectionRequest(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
 
+    @field_validator("db_type")
+    @classmethod
+    def validate_db_type(cls, v: str) -> str:
+        allowed = {"sqlite", "postgresql", "mysql"}
+        if v.lower() not in allowed:
+            raise ValueError(f"db_type must be one of {allowed}")
+        return v.lower()
+
+
 class QueryRequest(BaseModel):
+    """Natural-language → SQL request.
+
+    Accepts either a ``session_id`` (preferred, credentials never sent again)
+    or the full connection params for backward compatibility.
+    """
     natural_language_query: str
-    db_type: str
+    session_id: Optional[str] = None
+    # Legacy / fallback credential fields
+    db_type: Optional[str] = None
     host: Optional[str] = "localhost"
     port: Optional[int] = None
-    database: str
+    database: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
     schema_info: Optional[dict] = None
 
+
 class ExecuteRequest(BaseModel):
+    """Raw SQL execution request.
+
+    Accepts either a ``session_id`` (preferred) or full connection params.
+    """
     sql: str
-    db_type: str
+    session_id: Optional[str] = None
+    # Legacy / fallback credential fields
+    db_type: Optional[str] = None
     host: Optional[str] = "localhost"
     port: Optional[int] = None
-    database: str
+    database: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
+
 
 # ── Regex patterns ───────────────────────────────────────────────────────────
 
@@ -145,13 +199,20 @@ Rules:
 5. Never use SELECT * unless the user specifically asks for all columns.
 6. If the request is ambiguous, make a reasonable assumption and generate the best SQL you can.
 """
-    message = anthropic_client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1024,
-        system=system_prompt,
-        messages=[{"role": "user", "content": natural_language}],
+    response = gemini_client.models.generate_content(
+        model="gemini-2.5-pro",
+        contents=natural_language,
+        config=genai_types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            max_output_tokens=8192,
+        ),
     )
-    sql = message.content[0].text.strip()
+    # response.text may be None with Gemini 2.5 Pro thinking; fall back to parts
+    raw = response.text
+    if raw is None:
+        parts = [p.text for p in response.candidates[0].content.parts if hasattr(p, "text") and p.text]
+        raw = "\n".join(parts)
+    sql = raw.strip()
     if sql.startswith("```"):
         lines = sql.split("\n")
         sql = "\n".join(lines[1:-1]).strip()
@@ -320,6 +381,11 @@ def health():
 
 @app.post("/api/connect")
 def connect(req: ConnectionRequest):
+    """
+    Connect to a database, store the connection in a server-side session,
+    and return a ``session_id``.  Credentials are never needed again after this call.
+    """
+    _purge_expired()
     try:
         url    = build_connection_url(req)
         engine = create_engine(url, pool_pre_ping=True)
@@ -327,28 +393,77 @@ def connect(req: ConnectionRequest):
             conn.execute(text("SELECT 1"))
         schema = get_schema(engine)
         engine.dispose()
-        return {"success": True, "schema": schema, "message": "Connected successfully"}
     except SQLAlchemyError as e:
         raise HTTPException(status_code=400, detail=f"Database connection failed: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+    session_id = str(uuid.uuid4())
+    _sessions[session_id] = {
+        "url":     url,
+        "schema":  schema,
+        "db_type": req.db_type,
+        "expires": time.time() + _SESSION_TTL,
+    }
+
+    return {
+        "success":    True,
+        "session_id": session_id,
+        "schema":     schema,
+        "message":    "Connected successfully",
+    }
+
+
+@app.delete("/api/session/{session_id}")
+def delete_session(session_id: str):
+    """Explicitly invalidate a session (logout / disconnect)."""
+    if session_id not in _sessions:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    del _sessions[session_id]
+    return {"success": True, "message": "Session ended."}
 
 
 @app.post("/api/query")
 def query(req: QueryRequest):
+    """
+    Convert a natural-language query to SQL via Gemini, then execute it.
+
+    Preferred: send ``session_id`` (no credentials in transit).
+    Fallback:  send full connection params (legacy; credentials travel in body).
+    """
+    # ── Resolve connection ───────────────────────────────────────────────────
+    if req.session_id:
+        session   = _get_session(req.session_id)
+        url       = session["url"]
+        db_type   = session["db_type"]
+        schema    = req.schema_info or session["schema"]
+    elif req.db_type and req.database:
+        # Legacy fallback — build URL from credentials supplied in request body
+        url     = build_connection_url(req)
+        db_type = req.db_type
+        schema  = req.schema_info or {}
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either a session_id or full connection parameters.",
+        )
+
     try:
-        url    = build_connection_url(req)
         engine = create_engine(url, pool_pre_ping=True)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     try:
-        schema = req.schema_info or get_schema(engine)
-        sql    = nl_to_sql(req.natural_language_query, schema, req.db_type)
+        if not schema:
+            schema = get_schema(engine)
+
+        sql = nl_to_sql(req.natural_language_query, schema, db_type)
 
         # Generate undo BEFORE execution — fully isolated, never affects the query
         try:
-            undo_sql = generate_undo_sql(engine, sql, req.db_type)
+            undo_sql = generate_undo_sql(engine, sql, db_type)
         except Exception:
             undo_sql = None
 
@@ -357,7 +472,7 @@ def query(req: QueryRequest):
         # Generate undo AFTER execution (INSERT) — also isolated
         if undo_sql == "__POST_INSERT__":
             try:
-                undo_sql = generate_insert_undo(engine, sql, req.db_type)
+                undo_sql = generate_insert_undo(engine, sql, db_type)
             except Exception:
                 undo_sql = None
 
@@ -371,20 +486,38 @@ def query(req: QueryRequest):
         }
     except SQLAlchemyError as e:
         raise HTTPException(status_code=400, detail=f"Query execution failed: {str(e)}")
-    except anthropic.APIError as e:
-        raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e) or "Internal server error")
+        status = 502 if ("google" in type(e).__module__ or "genai" in type(e).__module__) else 500
+        raise HTTPException(status_code=status, detail=str(e) or "Internal server error")
     finally:
         engine.dispose()
 
 
 @app.post("/api/execute")
 def execute(req: ExecuteRequest):
+    """
+    Execute raw SQL.
+
+    Preferred: send ``session_id`` (no credentials in transit).
+    Fallback:  send full connection params (legacy).
+    """
+    # ── Resolve connection ───────────────────────────────────────────────────
+    if req.session_id:
+        session = _get_session(req.session_id)
+        url     = session["url"]
+        db_type = session["db_type"]
+    elif req.db_type and req.database:
+        url     = build_connection_url(req)
+        db_type = req.db_type
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either a session_id or full connection parameters.",
+        )
+
     try:
-        url    = build_connection_url(req)
         engine = create_engine(url, pool_pre_ping=True)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -392,7 +525,7 @@ def execute(req: ExecuteRequest):
     try:
         # Generate undo BEFORE execution — fully isolated, never affects the query
         try:
-            undo_sql = generate_undo_sql(engine, req.sql, req.db_type)
+            undo_sql = generate_undo_sql(engine, req.sql, db_type)
         except Exception:
             undo_sql = None
 
@@ -401,7 +534,7 @@ def execute(req: ExecuteRequest):
         # Generate undo AFTER execution (INSERT) — also isolated
         if undo_sql == "__POST_INSERT__":
             try:
-                undo_sql = generate_insert_undo(engine, req.sql, req.db_type)
+                undo_sql = generate_insert_undo(engine, req.sql, db_type)
             except Exception:
                 undo_sql = None
 

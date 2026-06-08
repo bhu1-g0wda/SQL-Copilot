@@ -1,10 +1,10 @@
 # SQL Copilot ⚡
 
-An AI-powered SQL assistant that converts natural language to SQL using **Claude Sonnet 4**, with a beautiful dark-themed React UI and a FastAPI backend.
+An AI-powered SQL assistant that converts natural language to SQL using **Gemini 2.5 Pro**, with a beautiful dark-themed React UI and a FastAPI backend.
 
 ## Features
 
-- 🤖 **Natural language → SQL** via Claude Sonnet 4
+- 🤖 **Natural language → SQL** via Gemini 2.5 Pro
 - 🗄️ **Multi-database support** — PostgreSQL, MySQL, SQLite
 - 🌳 **Schema explorer** — live tree view of tables and columns
 - 🔍 **Syntax-highlighted SQL** display with copy button
@@ -12,6 +12,7 @@ An AI-powered SQL assistant that converts natural language to SQL using **Claude
 - ✏️ **Edit & re-run** generated SQL directly
 - ⚠️ **Confirmation modal** for destructive operations (DELETE, UPDATE, DROP, TRUNCATE)
 - 🔄 **Mode toggle** — switch between Natural Language and Raw SQL mode
+- 🔐 **Session-based connections** — credentials sent once on connect, never again in subsequent requests
 
 ---
 
@@ -22,13 +23,16 @@ sql-copilot/
 ├── backend/
 │   ├── main.py              # FastAPI app
 │   ├── requirements.txt     # Python deps
-│   └── .env.example         # Environment variable template
+│   ├── pytest.ini           # Test configuration
+│   ├── .env.example         # Environment variable template
+│   └── tests/
+│       └── test_main.py     # pytest test suite
 └── frontend/
     ├── src/
     │   ├── App.tsx           # Main application
     │   ├── index.css         # Global design system
     │   ├── api/
-    │   │   └── client.ts     # Axios API client
+    │   │   └── client.ts     # Axios API client (session-aware)
     │   └── components/
     │       ├── ConnectionForm.tsx  # DB connection panel
     │       ├── QueryInput.tsx      # NL/SQL input + mode toggle
@@ -45,7 +49,7 @@ sql-copilot/
 
 - **Python 3.10+**
 - **Node.js 18+**
-- **Anthropic API Key** — get one at https://console.anthropic.com
+- **Gemini API Key** — get one free at https://aistudio.google.com/
 
 For PostgreSQL: `psycopg2-binary` is included (no extra install needed)  
 For MySQL: `pymysql` is included  
@@ -58,7 +62,7 @@ For SQLite: built-in, no extra server needed
 ### 1. Clone / open the project
 
 ```bash
-cd "sql copliot"
+cd "sql-copilot"
 ```
 
 ### 2. Backend Setup
@@ -82,8 +86,8 @@ pip install -r requirements.txt
 copy .env.example .env      # Windows
 # cp .env.example .env      # macOS/Linux
 
-# Edit .env and add your Anthropic API key:
-# ANTHROPIC_API_KEY=sk-ant-...
+# Edit .env and add your Gemini API key:
+# GEMINI_API_KEY=AIza...
 ```
 
 ### 3. Frontend Setup
@@ -120,14 +124,25 @@ Frontend will be at: http://localhost:5173
 
 ---
 
+## Running Tests
+
+```bash
+cd backend
+venv\Scripts\activate
+pytest tests/ -v --cov=. --cov-report=term-missing
+```
+
+---
+
 ## API Reference
 
-| Method | Endpoint        | Description                          |
-|--------|-----------------|--------------------------------------|
-| GET    | `/api/health`   | Health check                         |
-| POST   | `/api/connect`  | Connect to DB and retrieve schema    |
-| POST   | `/api/query`    | NL → SQL via Claude, then execute    |
-| POST   | `/api/execute`  | Execute raw SQL directly             |
+| Method | Endpoint                | Description                              |
+|--------|-------------------------|------------------------------------------|
+| GET    | `/api/health`           | Health check                             |
+| POST   | `/api/connect`          | Connect to DB, returns `session_id`      |
+| DELETE | `/api/session/{id}`     | Invalidate a session (disconnect)        |
+| POST   | `/api/query`            | NL → SQL via Gemini, then execute        |
+| POST   | `/api/execute`          | Execute raw SQL directly                 |
 
 ### POST /api/connect
 
@@ -142,17 +157,14 @@ Frontend will be at: http://localhost:5173
 }
 ```
 
+**Response includes `session_id`** — use this for all subsequent requests. Credentials are never sent again.
+
 ### POST /api/query
 
 ```json
 {
-  "natural_language_query": "Show me the top 10 customers by revenue",
-  "db_type": "postgresql",
-  "host": "localhost",
-  "port": 5432,
-  "database": "mydb",
-  "username": "postgres",
-  "password": "secret"
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "natural_language_query": "Show me the top 10 customers by revenue"
 }
 ```
 
@@ -160,9 +172,8 @@ Frontend will be at: http://localhost:5173
 
 ```json
 {
-  "sql": "SELECT * FROM customers LIMIT 5;",
-  "db_type": "sqlite",
-  "database": "/path/to/db.sqlite"
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "sql": "SELECT id, name FROM customers LIMIT 5;"
 }
 ```
 
@@ -190,9 +201,9 @@ print("Created test.db")
 
 ## Environment Variables
 
-| Variable           | Required | Description               |
-|--------------------|----------|---------------------------|
-| `ANTHROPIC_API_KEY`| ✅ Yes   | Your Anthropic API key    |
+| Variable        | Required | Description            |
+|-----------------|----------|------------------------|
+| `GEMINI_API_KEY`| ✅ Yes   | Your Gemini API key    |
 
 ---
 
@@ -201,12 +212,23 @@ print("Created test.db")
 | Layer    | Technology                          |
 |----------|-------------------------------------|
 | Backend  | FastAPI + Uvicorn                   |
-| AI       | Anthropic SDK (Claude Sonnet 4)     |
+| AI       | Google Gemini 2.5 Pro (via google-genai SDK) |
 | Database | SQLAlchemy + psycopg2 / pymysql     |
 | Frontend | React 18 + TypeScript + Vite        |
 | Styling  | Vanilla CSS (dark design system)    |
 | HTTP     | Axios                               |
 | Syntax   | react-syntax-highlighter            |
+| Testing  | pytest + httpx + pytest-cov         |
+
+---
+
+## Security Design
+
+Credentials travel over the wire **only once** — in the `POST /api/connect` request. The server stores the connection URL in a server-side session (1-hour TTL) and returns a UUID `session_id`. All subsequent query and execute requests carry only the `session_id`. This means:
+
+- Passwords never appear in browser network logs for normal query traffic
+- Sessions auto-expire after 1 hour of inactivity
+- Clients can explicitly disconnect via `DELETE /api/session/{id}`
 
 ---
 
@@ -214,7 +236,9 @@ print("Created test.db")
 
 **`ModuleNotFoundError`** → Make sure your venv is activated and `pip install -r requirements.txt` was run.
 
-**`401 Unauthorized` from Anthropic** → Check your `ANTHROPIC_API_KEY` in `.env`.
+**`401 Unauthorized` from the API** → Your session may have expired (1-hour TTL). Click Connect again.
+
+**`401 Unauthorized` from Gemini** → Check your `GEMINI_API_KEY` in `.env`.
 
 **CORS errors** → Backend must be running on port 8000. Frontend proxy in `vite.config.ts` handles this automatically in dev.
 
