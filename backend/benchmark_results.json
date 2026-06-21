@@ -1,0 +1,270 @@
+{
+  "summary": {
+    "total": 14,
+    "passed": 0,
+    "accuracy_pct": 0.0,
+    "avg_latency_s": 2.31,
+    "min_latency_s": 2.04,
+    "max_latency_s": 5.62,
+    "by_level": {
+      "simple": {
+        "pass": 0,
+        "total": 3
+      },
+      "medium": {
+        "pass": 0,
+        "total": 5
+      },
+      "complex": {
+        "pass": 0,
+        "total": 6
+      }
+    }
+  },
+  "results": [
+    {
+      "query": "How many customers do we have?",
+      "level": "simple",
+      "elapsed_s": 5.62,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": false,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "COUNT",
+        "customers"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "List all product categories",
+      "level": "simple",
+      "elapsed_s": 2.05,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": false,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "SELECT",
+        "categories"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "Show me all orders with status cancelled",
+      "level": "simple",
+      "elapsed_s": 2.04,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": true,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "SELECT",
+        "orders",
+        "cancelled"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "What are the top 5 most expensive products?",
+      "level": "medium",
+      "elapsed_s": 2.05,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": false,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "SELECT",
+        "products",
+        "price",
+        "LIMIT"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "Show me total revenue per product category",
+      "level": "medium",
+      "elapsed_s": 2.07,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": false,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "SUM",
+        "GROUP BY",
+        "categories"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "Which customers joined in the last year?",
+      "level": "medium",
+      "elapsed_s": 2.06,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": true,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "SELECT",
+        "customers",
+        "joined_at"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "Find products with less than 10 items in stock",
+      "level": "medium",
+      "elapsed_s": 2.05,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": true,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "SELECT",
+        "products",
+        "stock"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "What is the average order value?",
+      "level": "medium",
+      "elapsed_s": 2.05,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": false,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "AVG",
+        "orders"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "Show me the top 5 customers by total amount spent, with their email",
+      "level": "complex",
+      "elapsed_s": 2.05,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": false,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "JOIN",
+        "customers",
+        "orders",
+        "SUM",
+        "GROUP BY",
+        "LIMIT"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "What is the total revenue per month for this year?",
+      "level": "complex",
+      "elapsed_s": 2.07,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": true,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "SUM",
+        "orders",
+        "GROUP BY"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "Show me the average product rating per category",
+      "level": "complex",
+      "elapsed_s": 2.06,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": false,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "AVG",
+        "reviews",
+        "categories",
+        "JOIN",
+        "GROUP BY"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "Which products have never been ordered?",
+      "level": "complex",
+      "elapsed_s": 2.05,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": true,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "products",
+        "order_items"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "Show month-over-month revenue growth as a percentage for the last 6 months",
+      "level": "complex",
+      "elapsed_s": 2.04,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": true,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "strftime",
+        "orders",
+        "LAG"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    },
+    {
+      "query": "Find the top 3 best-selling products by total quantity sold, including category name",
+      "level": "complex",
+      "elapsed_s": 2.06,
+      "http_ok": false,
+      "run_ok": false,
+      "rows_ok": false,
+      "kw_score": 0.0,
+      "kw_misses": [
+        "SUM",
+        "order_items",
+        "products",
+        "categories",
+        "JOIN",
+        "GROUP BY",
+        "LIMIT"
+      ],
+      "passed": false,
+      "sql": "",
+      "error": "{\"detail\":\"Session not found. Please reconnect.\"}"
+    }
+  ]
+}

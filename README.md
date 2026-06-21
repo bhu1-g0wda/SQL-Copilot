@@ -53,7 +53,7 @@ sql-copilot/
 | Requirement | Version |
 |---|---|
 | Python | 3.10 or newer |
-| React (Node.js) | Node.js 18 or newer — needed to run the React frontend |
+| React (Node.js) | Node.js 18 or newer - needed to run the React frontend |
 | Gemini API Key | Free at https://aistudio.google.com/ |
 
 > **Database drivers** — `psycopg2-binary` (PostgreSQL) and `pymysql` (MySQL) are included in `requirements.txt`. SQLite is built into Python — no extra install needed.
